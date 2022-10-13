@@ -36,13 +36,13 @@ resource "vsphere_virtual_machine" "vmFromRemoteOvf" {
   }
   vapp {
     properties = {
-      "admin_hash"     = var.chkp_admin_password_plain,
+      "admin_hash"     = "${var.chkp_admin_password_plain}",
       "password_type" = "Plain",
       "ntp_primary" = "192.168.100.101",
       "primary" = "172.23.39.5",
       "solution_type" = "Security Gateway",
       "run_ftw" = "Yes",
-      "ftw_sic_key" = var.chkp_otp_key,
+      "ftw_sic_key" = "${var.chkp_otp_key}",
       "hostname" = "AutomationTest${count.index + 1}",
       "default_gw_v4" = "192.168.100.1",
       "ipaddr_v4" = "192.168.100.1${count.index + 1}",
