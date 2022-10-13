@@ -19,13 +19,17 @@ check_point_gateway_3
 [check_point_gateways:vars]
 ntp_host=192.168.100.101
 web_file_host=http://192.168.100.53
-ansible_user_pw_hash="\\$6\\$UAxWXDhef2zm8mqt\\$gvnwQIF1dkw8J9JUvmyYXUeAt2LSl4V62JKNFilEK0YQGo4ACOTry4QLWjE9nMQOPCKs42ZleldciXgCdnjCd1"
+# This password hash is for vpn123 - please do not use this for production
+ansible_user_pw_hash=$6$UAxWXDhef2zm8mqt$gvnwQIF1dkw8J9JUvmyYXUeAt2LSl4V62JKNFilEK0YQGo4ACOTry4QLWjE9nMQOPCKs42ZleldciXgCdnjCd1
+# Please do not use this community string for production
 snmp_read_community=vpn123
 ansible_httpapi_use_ssl=True
 ansible_httpapi_validate_certs=False
 ansible_user=admin
+# Please do not use this password for production
 ansible_password=vpn123
 ansible_ssh_user=ansibleuser
+# Please do not use this password for production
 ansible_ssh_password=vpn123
 ansible_network_os=check_point.gaia.checkpoint
 ansible_ssh_extra_args='-o StrictHostKeyChecking=no' 
@@ -35,5 +39,6 @@ ntp_host=192.168.100.101
 ansible_httpapi_use_ssl=True
 ansible_httpapi_validate_certs=False
 ansible_user=admin
+# Please do not use this password for production
 ansible_password=vpn123
 ansible_network_os=check_point.mgmt.checkpoint
