@@ -9,7 +9,7 @@
         shell: no-login
         name: apiuser
         state: present
-        password_hash: {{ ansible_user_pw_hash }}
+        password_hash: "{{ ansible_user_pw_hash }}"
         allow_access_using: ['Gaia-API', 'CLI']
         roles: ['monitorRole']
         uid: 200
