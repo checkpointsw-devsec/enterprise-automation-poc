@@ -16,4 +16,4 @@ chkp_passwd_hash =  "\\$6\\$UAxWXDhef2zm8mqt\\$gvnwQIF1dkw8J9JUvmyYXUeAt2LSl4V62
 chkp_otp_key = "vpn123"
 
 # Default admin password - plain text option. To use a hash - paste the hash value here and change the value in deploy-resilient-gateways.tf for password-type to Hash
-chkp_admin_password_plain = "Cpwins12345!"
+chkp_admin_password_plain = "vpn123"
