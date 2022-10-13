@@ -1,0 +1,361 @@
+---
+stages:
+  - 1.x-Management infrastructure provisioning
+  - 2.1-gateway-deployment
+  - 2.x-ansible_gateway_config
+  - 3.x-management-configuration
+  - 4.x-logging-and-telemetry
+  - 5.x-Lifecycle-management
+  - step999_teardown
+   
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+1.1.1-deploy-resilient-security-management:
+  stage: 1.x-Management infrastructure provisioning
+  when: manual
+  allow_failure: true
+  script:
+    - cd terraform/0-vsphere-infrastructure/
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="username=chkp-jimo" 
+      -backend-config="password=$CI_personal_gitlab_access_token"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform apply -auto-approve -lock=false
+    - cd ../1.1-mdsm/
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
+      -backend-config="username=chkp-jimo" 
+      -backend-config="password=$CI_personal_gitlab_access_token"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform apply -auto-approve -lock=false
+
+1.1.2-configure-resilient-security-management:
+  stage: 1.x-Management infrastructure provisioning
+  when: manual
+  #needs: ['1.1.1-deploy-resilient-security-management']
+  allow_failure: true
+  script:
+    - ansible-galaxy collection install check_point.gaia
+    - ansible-galaxy collection install check_point.mgmt
+    - cd ansible
+    - ansible-playbook playbooks/1.1.2-Task-2.1-configure-mds-ha.yml
+
+1.2-Task-2.2-Build-an-overarching-enterprise-level-policy:
+  stage: 1.x-Management infrastructure provisioning
+  when: manual
+  #needs: ['1.1.1-deploy-resilient-security-management']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/1.2-Task-2.2-Build-an-overarching-enterprise-level-policy.yml
+
+1.3-Task-2.3-Deploy-two-dedicated-management-tenancies:
+  stage: 1.x-Management infrastructure provisioning
+  when: manual
+  #needs: ['1.1.2-configure-resilient-security-management']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/1.3-Task-2.3-Deploy-two-dedicated-management-tenancies.yml
+
+1.4-Task-2.4-Configure-RBAC-controls-to-separate-two-management-tenancies-with-RO-RW:
+  stage: 1.x-Management infrastructure provisioning
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/1.4-Task-2.4-Configure-RBAC-controls-to-separate-two-management-tenancies-with-RO-RW.yml
+
+2.1-deploy-resilient-gateways:
+  stage: 2.1-gateway-deployment
+  when: manual
+  
+  allow_failure: true
+  script:
+    - cd terraform/0-vsphere-infrastructure/
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="username=chkp-jimo" 
+      -backend-config="password=$CI_personal_gitlab_access_token"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform apply -auto-approve -lock=false
+    - cd ../2.1-resilient-security-gateway
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways/lock" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways/lock" 
+      -backend-config="username=chkp-stuartgreen" 
+      -backend-config="password=$CI_gitlab_key"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform apply -auto-approve -lock=false
+
+2.2-configure-api:
+  stage: 2.x-ansible_gateway_config
+  needs: ['2.1-deploy-resilient-gateways']
+  allow_failure: true
+  script:
+    - ansible-galaxy collection install check_point.gaia
+    - ansible-galaxy collection install check_point.mgmt
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/2.2-Task-1.2-os-configuration-api-upgrade.yml
+
+2.3-configure-mdps:
+  stage: 2.x-ansible_gateway_config
+  needs: ['2.2-configure-api']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/2.3-Task-1.3-configure-mdps.yml
+
+2.4-configure-API-user:
+  stage: 2.x-ansible_gateway_config
+  needs: ['2.3-configure-mdps']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/2.4-Task-1.4-configure-rbac-limited-access-user.yml
+
+2.5-update-os-config-SNMP:
+  stage: 2.x-ansible_gateway_config
+  needs: ['2.4-configure-API-user']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/2.5-Task-1.5-update-os-configuration-snmp.yml
+
+2.7-Task-1.7-Register-enroll-and-config-resilient-sg-in-mgmt:
+  stage: 2.x-ansible_gateway_config
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/2.7-Task-1.7-Register-enroll-and-config-resilient-sg-in-mgmt.yml
+
+3.1-Task-3.1-Single-tenant-security-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.1-Task-3.1-Single-tenant-security-policy.yml
+
+3.2-Task-3.2-Shared-tenancy-security-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.2-Task-3.2-Shared-tenancy-security-policy.yml
+
+3.3-Task-3.3-RBAC-on-a-shared-tenancy-security-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.3-Task-3.3-RBAC-on-a-shared-tenancy-security-policy.yml
+
+3.4.1-Task-3.4.1-3.4.2-CUD-L4-filtering-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.4-Task-3.4.1-3.4.3-CUD-L4-filtering-policy.yml
+
+3.4.2-Task-3.4.3-delete-L4-filtering-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.4-Task-3.4.1-3.4.3-CUD-L4-filtering-policy.yml -e "state=absent"
+
+3.5.1-Task-3.5.1-3.5.2-CUD-L7-filtering-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.5-Task-3.5.1-3.5.3-CUD-L7-filtering-policy.yml
+  
+3.5.2-Task-3.5.3-delete-L7-filtering-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.5-Task-3.5.1-3.5.3-CUD-L7-filtering-policy.yml -e "state=absent"
+
+3.6.1-Task-3.6.1-3.6.2-CUD-NAT-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.6-Task-3.6.1-3.6.3-CUD-NAT-policy.yml
+
+3.6.2-Task-3.6.3-delete-NAT-policy:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.6-Task-3.6.1-3.6.3-CUD-NAT-policy.yml -e "state=absent"
+
+3.7-Task-3.8-RBAC-SOC-to-manage-signature-deployments:
+  stage: 3.x-management-configuration
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/3.7-Task-3.8-RBAC-SOC-to-manage-signature-deployments.yml
+
+3.8-Task-3.7-update-app-signatures:
+  stage: 3.x-management-configuration
+  when: manual
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/3.8-Task-3.7-update-app-signatures.yml
+
+3.10-configure-cloudguard-controller:
+  stage: 3.x-management-configuration
+  when: manual
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/3.10-Task-3.10-configure-cg-controllers.yml
+
+4.1-Task-4.1-Deploy-vendor-log-collection-infrastructure:
+  stage: 4.x-logging-and-telemetry 
+  when: manual
+  #needs: ['1.1.1-deploy-resilient-security-management']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/4.1-Task-4.1-Deploy-vendor-log-collection-infrastructure.yml
+
+4.2-Task-4.2-Config-tenant-log-collection-servery:
+  stage: 4.x-logging-and-telemetry 
+  when: manual
+  #needs: ['4.1-Task-4.1-Deploy-vendor-log-collection-infrastructure']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/4.2-Task-4.2-Config-tenant-log-collection-servery.yml
+
+4.3-Task-4.3-Configure-log-exporting-on-tenant-basis:
+  stage: 4.x-logging-and-telemetry 
+  when: manual
+  #needs: ['1.3-Task-2.3-Deploy-two-dedicated-management-tenancies']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/4.3-Task-4.3-Configure-log-exporting-on-tenant-basis.yml
+
+step4.6_configure_open_telemetry:
+  stage: 4.x-logging-and-telemetry
+  when: manual
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook -i hosts playbooks/4.6-Task-4.6-setup-open-telemetry.yml
+
+5.1-Task-5.3-scaling-out-cluster:
+  stage: 5.x-Lifecycle-management
+  when: manual
+  #needs: ['2.7-Task-1.7-Register-enroll-and-config-resilient-sg-in-mgmt']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/5.1-Task-5.3-scaling-out-cluster.yml
+
+5.2-Task-5.1-Hit-less-orchestrated-upgrade-of-an-enforcement-point:
+  stage: 5.x-Lifecycle-management
+  when: manual
+  #needs: ['5.1-Task-5.3-scaling-out-cluster']
+  allow_failure: true
+  script:
+    - cd ansible
+    - ansible-playbook playbooks/5.2-Task-5.1-Hit-less-orchestrated-upgrade-of-an-enforcement-point.yml
+
+step999_teardown_MDSM:
+  stage: step999_teardown
+  when: manual
+  allow_failure: false
+  script:
+    - cd 1.1.1-Task-2.1-terraform-mdsm-infrastructure
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
+      -backend-config="username=chkp-jimo" 
+      -backend-config="password=$CI_personal_gitlab_access_token"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform destroy -auto-approve -lock=false
+
+step999_teardown_GWs:
+  stage: step999_teardown
+  when: manual
+  allow_failure: false
+  script:
+    - cd terraform
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways/lock" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways/lock" 
+      -backend-config="username=chkp-stuartgreen" 
+      -backend-config="password=$CI_gitlab_key"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform destroy -auto-approve -lock=false
+
+step999_teardown_vspere_infrastructure:
+  stage: step999_teardown
+  when: manual
+  allow_failure: false
+  script:
+    - cd terraform/0-vsphere-infrastructure/
+    - terraform init 
+      -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere" 
+      -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere/lock" 
+      -backend-config="unlock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-vsphere/lock" 
+      -backend-config="username=chkp-stuartgreen" 
+      -backend-config="password=$CI_gitlab_key"
+      -backend-config="lock_method=POST" 
+      -backend-config="unlock_method=DELETE" 
+      -backend-config="retry_wait_min=5"
+    - terraform destroy -auto-approve -lock=false
