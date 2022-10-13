@@ -1,6 +1,3 @@
-# Automation POC 
-
-WIP - docs to follow
 # Enterprise Automation POC - Check Point
 
 This repository contains a collection of scripts to demonstrate how to create a complete Check Point Enterprise environment using Terraform and Ansible.
