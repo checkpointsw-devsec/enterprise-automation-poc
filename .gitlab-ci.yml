@@ -314,7 +314,7 @@ step999_teardown_MDSM:
   when: manual
   allow_failure: false
   script:
-    - cd 1.1.1-Task-2.1-terraform-mdsm-infrastructure
+    - cd terraform/1.1.1-Task-2.1-terraform-mdsm-infrastructure
     - terraform init 
       -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
       -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-mdsm" 
@@ -331,7 +331,7 @@ step999_teardown_GWs:
   when: manual
   allow_failure: false
   script:
-    - cd terraform
+    - cd terraform/2.1-resilient-security-gateway
     - terraform init 
       -backend-config="address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways" 
       -backend-config="lock_address=https://gitlab.com/api/v4/projects/39209948/terraform/state/tfstate-gateways/lock" 
