@@ -8,6 +8,7 @@ The general flow should be to run the Terraform scripts first to create the mana
 
 This will create:
 - 2x MDS (R81.20)
+- 1x MLM (R81.20
 - 2x DMS (R81.20)
 - 1x DLS (R81.20)
 - 3x Gateways (R81.10)
